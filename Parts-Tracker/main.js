@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS = {
   anthropicApiKey: '',
   geminiApiKey: '',
   aiProvider: 'gemini',
-  vehicle: '2007 Mazda 3 MPS (BK chassis, UK model)'
+  vehicle: ''
 };
 
 // Logo files live in data/ (not data/images) so "Reset app data" keeps them
@@ -40,15 +40,80 @@ function ensureDataDirs() {
   }
 }
 
-function loadData() {
+function readRawData() {
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf8').replace(new RegExp('^\\uFEFF'), '');
     const data = JSON.parse(raw);
-    if (!Array.isArray(data.products)) data.products = [];
     return data;
   } catch (err) {
-    return { products: [] };
+    return null;
   }
+}
+
+function newId() {
+  return require('crypto').randomUUID();
+}
+
+// "2007 Mazda 3 MPS (BK chassis, UK model)" -> "2007 Mazda 3 MPS"
+function carNameFromVehicle(vehicle) {
+  return String(vehicle || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim() || 'My car';
+}
+
+// Every product belongs to a car. Older data files held one flat product list;
+// that becomes the first car, using the vehicle previously set in Settings.
+function normaliseStore(raw) {
+  if (raw && Array.isArray(raw.cars) && raw.cars.length) {
+    for (const car of raw.cars) {
+      if (!Array.isArray(car.products)) car.products = [];
+      if (typeof car.vehicle !== 'string') car.vehicle = '';
+    }
+    if (!raw.cars.some((c) => c.id === raw.activeCarId)) raw.activeCarId = raw.cars[0].id;
+    return { store: raw, migrated: false };
+  }
+  const vehicle = loadSettings().vehicle || '';
+  const car = {
+    id: newId(),
+    name: carNameFromVehicle(vehicle),
+    vehicle,
+    products: raw && Array.isArray(raw.products) ? raw.products : []
+  };
+  return { store: { cars: [car], activeCarId: car.id }, migrated: true };
+}
+
+function loadData() {
+  const raw = readRawData();
+  const { store, migrated } = normaliseStore(raw);
+  if (migrated) {
+    // Keep the pre-migration file once, so the old format can always be recovered
+    const backup = path.join(DATA_DIR, 'products.before-multi-car.json');
+    if (raw && Array.isArray(raw.products) && raw.products.length && !fs.existsSync(backup)) {
+      fs.copyFileSync(DATA_FILE, backup);
+    }
+    saveData(store);
+  }
+  return store;
+}
+
+// A product and the car it belongs to, wherever it lives
+function locateProduct(productId) {
+  for (const car of loadData().cars) {
+    const product = car.products.find((p) => p.id === productId);
+    if (product) return { car, product };
+  }
+  return null;
+}
+
+// AI searches check fitment against the car the part belongs to
+function settingsForCar(car) {
+  return { ...loadSettings(), vehicle: (car && car.vehicle) || '' };
+}
+
+function vehicleMissingMessage(car) {
+  return 'Set the vehicle for "' + car.name + '" in the Garage tab first - the AI uses it to check parts fit.';
+}
+
+function aiKeyConfigured(settings) {
+  return Boolean(settings.aiProvider === 'anthropic' ? settings.anthropicApiKey : settings.geminiApiKey);
 }
 
 function saveData(data) {
@@ -143,24 +208,13 @@ app.whenReady().then(() => {
 
   // Permanently deletes every product and uploaded image (settings are kept)
   ipcMain.handle('reset-data', () => {
-    saveData({ products: [] });
+    const store = loadData();
+    for (const car of store.cars) car.products = [];
+    saveData(store);
     for (const f of fs.readdirSync(IMAGES_DIR)) {
       try { fs.unlinkSync(path.join(IMAGES_DIR, f)); } catch (err) { /* ignore */ }
     }
     return true;
-  });
-
-  ipcMain.handle('confirm', async (event, message) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const result = await dialog.showMessageBox(win, {
-      type: 'warning',
-      buttons: ['Cancel', 'Delete'],
-      defaultId: 0,
-      cancelId: 0,
-      title: 'Parts Tracker',
-      message
-    });
-    return result.response === 1;
   });
 
   ipcMain.handle('open-link', (event, url) => {
@@ -192,10 +246,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('find-cheapest', async (event, productId, mode) => {
     const { findCheapest, usageCostText } = require('./pricefinder');
-    const data = loadData();
-    const product = data.products.find((p) => p.id === productId);
-    if (!product) return { error: 'Product not found' };
-    const settings = loadSettings();
+    const found = locateProduct(productId);
+    if (!found) return { error: 'Product not found' };
+    const { product, car } = found;
+    const settings = settingsForCar(car);
+    if (mode !== 'links' && aiKeyConfigured(settings) && !car.vehicle) {
+      return { error: vehicleMissingMessage(car) };
+    }
     const sender = event.sender;
     try {
       const res = await findCheapest({
@@ -236,13 +293,15 @@ app.whenReady().then(() => {
 
   ipcMain.handle('find-alternatives', async (event, productId) => {
     const { findAlternatives, usageCostText } = require('./pricefinder');
-    const product = loadData().products.find((p) => p.id === productId);
-    if (!product) return { ok: false, error: 'Product not found' };
+    const found = locateProduct(productId);
+    if (!found) return { ok: false, error: 'Product not found' };
+    const { product, car } = found;
+    if (!car.vehicle) return { ok: false, error: vehicleMissingMessage(car) };
     const sender = event.sender;
     try {
       const res = await findAlternatives({
         product,
-        settings: loadSettings(),
+        settings: settingsForCar(car),
         onProgress: (text) => {
           if (!sender.isDestroyed()) sender.send('price-progress', { productId, text, scope: 'alt' });
         }
@@ -255,14 +314,16 @@ app.whenReady().then(() => {
 
   ipcMain.handle('price-alternatives', async (event, productId, manufacturers) => {
     const { priceAlternatives, usageCostText } = require('./pricefinder');
-    const product = loadData().products.find((p) => p.id === productId);
-    if (!product) return { ok: false, error: 'Product not found' };
+    const found = locateProduct(productId);
+    if (!found) return { ok: false, error: 'Product not found' };
+    const { product, car } = found;
+    if (!car.vehicle) return { ok: false, error: vehicleMissingMessage(car) };
     const sender = event.sender;
     try {
       const res = await priceAlternatives({
         product,
         manufacturers: manufacturers || [],
-        settings: loadSettings(),
+        settings: settingsForCar(car),
         onProgress: (text) => {
           if (!sender.isDestroyed()) sender.send('price-progress', { productId, text, scope: 'alt' });
         }

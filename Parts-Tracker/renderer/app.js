@@ -54,7 +54,6 @@ function applySettings() {
   document.getElementById('wrap-anthropic-key').classList.toggle('hidden', provider !== 'anthropic');
   document.getElementById('api-key-input').value = settings.anthropicApiKey || '';
   document.getElementById('gemini-key-input').value = settings.geminiApiKey || '';
-  document.getElementById('vehicle-input').value = settings.vehicle || '';
 
   document.getElementById('theme-dark').classList.toggle('active', settings.theme !== 'light');
   document.getElementById('theme-light').classList.toggle('active', settings.theme === 'light');
@@ -75,7 +74,18 @@ const STATUS_CLASS = {
   'Part Fitted': 'fitted'
 };
 
-let data = { products: [] };
+// Every car and its parts. The UI always works on the active car, so `data`
+// is a live view onto that car's product list rather than a copy.
+let store = { cars: [], activeCarId: null };
+
+function activeCar() {
+  return store.cars.find((c) => c.id === store.activeCarId) || store.cars[0] || null;
+}
+
+const data = {
+  get products() { const car = activeCar(); return car ? car.products : []; },
+  set products(list) { const car = activeCar(); if (car) car.products = list; }
+};
 let currentId = null;          // product open in the details modal
 
 // Form modal state
@@ -118,20 +128,22 @@ function imgSrc(rel) {
 }
 
 async function persist() {
-  await window.api.saveData(data);
+  await window.api.saveData(store);
 }
 
 /* ---------------- Tabs ---------------- */
 
 $('tab-products').addEventListener('click', () => switchTab('products'));
 $('tab-tracker').addEventListener('click', () => switchTab('tracker'));
+$('tab-garage').addEventListener('click', () => switchTab('garage'));
 $('tab-settings').addEventListener('click', () => switchTab('settings'));
 
 function switchTab(which) {
-  for (const t of ['products', 'tracker', 'settings']) {
+  for (const t of ['products', 'tracker', 'garage', 'settings']) {
     $('tab-' + t).classList.toggle('active', which === t);
     $('view-' + t).classList.toggle('hidden', which !== t);
   }
+  if (which === 'garage') renderGarage();
 }
 
 /* ---------------- Products grid ---------------- */
@@ -472,6 +484,7 @@ function openDetail(id) {
   clearPriceSearchUi();
   clearAltUi();
   renderAlternatives(p);
+  updateAltVisibility(p);
 
   $('detail-overlay').classList.remove('hidden');
 }
@@ -488,6 +501,7 @@ $('d-status').addEventListener('change', async () => {
   if (!p) return;
   p.status = $('d-status').value;
   updateDateVisibility(p.status);
+  updateAltVisibility(p);
   await persist();
   renderGrid();
   renderTracker();
@@ -583,7 +597,12 @@ $('btn-edit-product').addEventListener('click', () => {
 $('btn-delete-product').addEventListener('click', async () => {
   const p = findProduct(currentId);
   if (!p) return;
-  const ok = await window.api.confirmDialog(`Delete "${p.name}"? This cannot be undone.`);
+  const ok = await appConfirm({
+    title: 'Delete this product?',
+    message: '"' + p.name + '" will be permanently deleted, along with its photo, links and alternatives.\n\nThere is no undo.',
+    confirmLabel: 'Delete product',
+    danger: true
+  });
   if (!ok) return;
 
   if (p.image) await window.api.deleteImage(p.image);
@@ -663,6 +682,7 @@ $('currency-select').addEventListener('change', async () => {
   applySettings();
   await persistSettings();
   renderTracker();
+  renderGarage();
 });
 
 $('ai-provider-select').addEventListener('change', async () => {
@@ -681,11 +701,6 @@ $('gemini-key-input').addEventListener('change', async () => {
   await persistSettings();
 });
 
-$('vehicle-input').addEventListener('change', async () => {
-  settings.vehicle = $('vehicle-input').value.trim() || '2007 Mazda 3 MPS (BK chassis, UK model)';
-  applySettings();
-  await persistSettings();
-});
 
 /* ---------------- Find cheapest price ---------------- */
 
@@ -1027,14 +1042,6 @@ function appendSpecLines(parent, alt, diffs) {
   }
 }
 
-// Leads the swap dialog when the replacement is not like-for-like
-function buildDiffWarning(diffs) {
-  if (!diffs.length) return '';
-  return 'DIFFERENT SPECIFICATION\n'
-    + diffs.map((d) => '  \u2022 ' + d).join('\n')
-    + '\n\nThis is not a like-for-like part. Check it suits your car before continuing.\n\n';
-}
-
 function renderAlternatives(p) {
   const alts = (p.alternatives && p.alternatives.manufacturers) || [];
   const picklist = $('alt-picklist');
@@ -1177,14 +1184,16 @@ async function confirmSwap(product, alt) {
   const price = swapPrice(alt);
   if (price == null) return;
   const newName = swapName(alt);
-  const warning = buildDiffWarning(altDifferences(product, alt));
-  const ok = await window.api.confirmDialog(
-    warning +
-    'Swap this product for ' + newName + '?\n\n' +
-    'The product becomes "' + newName + '" at ' + money.format(price) + ', with the retailer links found for it.\n\n' +
-    '"' + product.name + '" (' + money.format(product.price) + ') moves into Alternative options, with its links and photo kept.\n\n' +
-    'Status and dates are left as they are — change them yourself if this part has not been ordered.'
-  );
+  const ok = await appConfirm({
+    title: 'Use this part instead?',
+    message: '"' + newName + '" becomes this product at ' + money.format(price) +
+      ', with the retailer links found for it.\n\n' +
+      '"' + product.name + '" (' + money.format(product.price) + ') moves into Alternative options, ' +
+      'keeping its links and photo, so you can switch back at any time.\n\n' +
+      'Status and dates stay as they are - change them if this part has not been ordered yet.',
+    confirmLabel: 'Use this part instead',
+    warnings: altDifferences(product, alt)
+  });
   if (ok) await swapToAlternative(product, alt);
 }
 
@@ -1391,7 +1400,9 @@ $('reset-confirm-text').addEventListener('input', () => {
 $('btn-reset-confirm').addEventListener('click', async () => {
   if ($('reset-confirm-text').value.trim() !== 'DELETE') return;
   await window.api.resetData();
-  data = { products: [] };
+  store = await window.api.loadData();
+  renderCarSwitch();
+  renderGarage();
   currentId = null;
   $('filter-status').value = '';
   $('filter-type').value = '';
@@ -1406,33 +1417,15 @@ for (const btn of document.querySelectorAll('[data-close="reset"]')) {
   btn.addEventListener('click', () => $('reset-overlay').classList.add('hidden'));
 }
 
-/* ---------------- Modal close wiring ---------------- */
+/* ---------------- In-app confirmation ---------------- */
 
-for (const btn of document.querySelectorAll('[data-close="form"]')) {
-  btn.addEventListener('click', () => closeForm(true));
-}
-for (const btn of document.querySelectorAll('[data-close="detail"]')) {
-  btn.addEventListener('click', () => $('detail-overlay').classList.add('hidden'));
-}
+// Replaces the operating-system dialog: it matches the app's theme, makes no
+// error sound, and labels its button with the action it performs.
+let confirmResolve = null;
 
-// Click on the dark backdrop closes the details modal (all its edits save live)
-$('detail-overlay').addEventListener('click', (e) => {
-  if (e.target === $('detail-overlay')) $('detail-overlay').classList.add('hidden');
-});
+function appConfirm({ title, message, confirmLabel, danger, warnings }) {
+  if (confirmResolve) settleConfirm(false); // never leave an older prompt hanging
+  $('confirm-title').textContent = title || 'Are you sure?';
 
-document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape') return;
-  if (!$('reset-overlay').classList.contains('hidden')) $('reset-overlay').classList.add('hidden');
-  else if (!$('form-overlay').classList.contains('hidden')) closeForm(true);
-  else $('detail-overlay').classList.add('hidden');
-});
-
-/* ---------------- Init ---------------- */
-
-(async function init() {
-  settings = await window.api.loadSettings();
-  applySettings();
-  data = await window.api.loadData();
-  renderGrid();
-  renderTracker();
-})();
+  const msg = $('confirm-message');
+  msg.replaceChildren();

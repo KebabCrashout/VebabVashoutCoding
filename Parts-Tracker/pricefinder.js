@@ -581,7 +581,7 @@ function slugId(s) {
 // verification here - prices are indicative only and labelled as such.
 async function findAlternatives({ product, settings, onProgress, _runSearch }) {
   const currency = settings.currency || 'GBP';
-  const vehicle = settings.vehicle || '2007 Mazda 3 MPS (BK chassis, UK model)';
+  const vehicle = settings.vehicle || 'the car (model not specified)';
   const provider = settings.aiProvider === 'anthropic' ? 'anthropic' : 'gemini';
   const apiKey = provider === 'gemini' ? settings.geminiApiKey : settings.anthropicApiKey;
   if (!apiKey && !_runSearch) return { ok: false, error: 'No API key set — add one in Settings.' };
@@ -663,7 +663,7 @@ async function findAlternatives({ product, settings, onProgress, _runSearch }) {
 // retailers for that specific part.
 async function priceAlternatives({ product, manufacturers, settings, onProgress, _runSearch }) {
   const currency = settings.currency || 'GBP';
-  const vehicle = settings.vehicle || '2007 Mazda 3 MPS (BK chassis, UK model)';
+  const vehicle = settings.vehicle || 'the car (model not specified)';
   const provider = settings.aiProvider === 'anthropic' ? 'anthropic' : 'gemini';
   const apiKey = provider === 'gemini' ? settings.geminiApiKey : settings.anthropicApiKey;
   if (!apiKey && !_runSearch) return { ok: false, error: 'No API key set — add one in Settings.' };
@@ -966,7 +966,7 @@ async function findCheapest({ product, settings, onProgress, mode, _aiSearch }) 
         provider,
         apiKey,
         product,
-        vehicle: settings.vehicle || '2007 Mazda 3 MPS (BK chassis, UK model)',
+        vehicle: settings.vehicle || 'the car (model not specified)',
         currency,
         linkResults,
         onProgress

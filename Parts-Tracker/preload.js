@@ -10,7 +10,6 @@ contextBridge.exposeInMainWorld('api', {
   pickImage: (productId) => ipcRenderer.invoke('pick-image', productId),
   deleteImage: (relPath) => ipcRenderer.invoke('delete-image', relPath),
   openLink: (url) => ipcRenderer.invoke('open-link', url),
-  confirmDialog: (message) => ipcRenderer.invoke('confirm', message),
   loadSettings: () => ipcRenderer.invoke('load-settings'),
   pickLogo: () => ipcRenderer.invoke('pick-logo'),
   removeLogo: () => ipcRenderer.invoke('remove-logo'),

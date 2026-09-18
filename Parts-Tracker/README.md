@@ -4,8 +4,9 @@ A desktop app for tracking the parts of a vehicle build — photos, prices, reta
 links, order status and running totals — with optional AI-powered UK price
 searching.
 
-Built for a specific car project, but nothing is hard-coded: you set your own
-vehicle, app name, logo and currency in Settings.
+Built for a specific car project, but nothing is hard-coded: track as many cars as
+you like, each with its own parts and totals, and set your own app name, logo and
+currency in Settings.
 
 ## Download (no Node.js or Git needed)
 
@@ -101,7 +102,7 @@ committed.
   Final Total (everything).
 - **Find cheapest current price in the UK** — checks the product's saved links, and
   with an API key also scans UK retailers by AI web search (exact product only,
-  fitment checked against your vehicle, UK sellers only). Every candidate page is
+  fitment checked against the car the part belongs to, UK sellers only). Every candidate page is
   fetched and verified before it is trusted; the cheapest replaces the price (with
   an Undo) and the three cheapest retailers are saved as links.
 - **Quick price check** — re-prices just the saved links. No AI, no cost.
@@ -111,6 +112,14 @@ committed.
   for each. Differences from your part (e.g. *22mm — yours is 27mm*) are flagged,
   and **Use this part** swaps an alternative in, moving your current part into the
   alternatives list so the change is reversible.
+- Once a part is **Ordered, Received or Part Fitted** its alternatives are hidden —
+  you won't buy the same part twice. Set it back to Not purchased and they return.
+- **Garage tab** — keep several cars, each with its own parts, links, alternatives
+  and Price Tracker totals. Switch cars from the dropdown in the top bar. Each car
+  has a vehicle description (e.g. *2014 Toyota GT86 (ZN6, UK model)*) that AI
+  searches check fitment against; AI searches stay off for a car until it has one.
+- Every popup can be **dragged by its title bar** to see what's behind it, and
+  opens centred again next time.
 - **Settings tab** — app name and logo, dark/light theme, custom glow colours,
   currency, and *Reset app data* (wipes all products and images after typing
   DELETE to confirm).
@@ -120,7 +129,7 @@ committed.
 Everything you enter is stored in the `data` folder, created automatically on
 first run:
 
-- `data/products.json` — all product details
+- `data/products.json` — every car and its parts
 - `data/images/` — your uploaded images
 - `data/settings.json` — appearance, currency and API keys
 

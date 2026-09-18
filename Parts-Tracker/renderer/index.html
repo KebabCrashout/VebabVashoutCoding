@@ -12,9 +12,13 @@
       <img id="app-logo" class="app-logo hidden" alt="Logo">
       <h1 id="app-title" class="app-title">Parts Tracker</h1>
     </div>
+    <div class="car-switch">
+      <select id="car-select" title="Switch car" aria-label="Current car"></select>
+    </div>
     <nav class="tabs">
       <button id="tab-products" class="tab active">Products</button>
       <button id="tab-tracker" class="tab">Price Tracker</button>
+      <button id="tab-garage" class="tab">Garage</button>
       <button id="tab-settings" class="tab">Settings</button>
     </nav>
     <button id="btn-add" class="btn btn-primary">+ Add Product</button>
@@ -69,6 +73,7 @@
 
   <!-- Price Tracker view -->
   <main id="view-tracker" class="view hidden">
+    <p class="view-caption">Totals for <strong id="tracker-car-name"></strong></p>
     <div class="totals-row">
       <div class="total-card running">
         <span class="total-label">Running Total</span>
@@ -90,6 +95,18 @@
     <div id="tracker-empty" class="empty-state hidden">
       <p>No products to total yet.</p>
     </div>
+  </main>
+
+  <!-- Garage view: one entry per car -->
+  <main id="view-garage" class="view hidden">
+    <div class="garage-head">
+      <div>
+        <h2 class="garage-title">Garage</h2>
+        <p class="muted small">Each car keeps its own parts, links and price totals. The vehicle description is what AI searches check fitment against, so make it specific.</p>
+      </div>
+      <button id="btn-add-car" class="btn btn-primary">+ Add car</button>
+    </div>
+    <div id="garage-list" class="garage-list"></div>
   </main>
 
   <!-- Settings view -->
@@ -176,10 +193,7 @@
           <span>Anthropic API key (from console.anthropic.com)</span>
           <input id="api-key-input" type="password" autocomplete="off" placeholder="sk-ant-…">
         </label>
-        <label class="field">
-          <span>Your vehicle (used to check part fitment)</span>
-          <input id="vehicle-input" type="text" maxlength="80" placeholder="2007 Mazda 3 MPS (BK chassis, UK model)">
-        </label>
+        <p class="muted small">Each car's vehicle, used to check that parts fit, is set in the <strong>Garage</strong> tab.</p>
         <p class="muted small">"Find cheapest current price in the UK" always checks a product's saved links for free. With an API key it also scans UK retailers using AI web search — Gemini's free tier costs nothing (rate-limited), Claude costs roughly 15–40p per scan. Keys are stored only on this computer in <code>data\settings.json</code>.</p>
       </section>
 
@@ -320,7 +334,7 @@
             <ul id="price-results" class="price-results"></ul>
           </div>
 
-          <div class="field">
+          <div class="field" id="wrap-alts">
             <button id="btn-find-alts" class="btn btn-search">🔀 Find alternatives from other manufacturers</button>
             <div id="alt-status" class="price-status hidden"></div>
 
@@ -343,6 +357,54 @@
           <button id="btn-edit-product" class="btn">Edit details</button>
           <button class="btn btn-primary" data-close="detail">Done</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- In-app confirmation: themed, silent, and labelled for the action -->
+  <div id="confirm-overlay" class="overlay hidden">
+    <div class="modal confirm-modal" role="alertdialog" aria-labelledby="confirm-title">
+      <div class="modal-head">
+        <h2 id="confirm-title">Are you sure?</h2>
+        <button class="btn-close" id="confirm-x" aria-label="Cancel">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="confirm-warning" class="confirm-warning hidden">
+          <strong>&#9888; Different specification</strong>
+          <ul id="confirm-warning-list"></ul>
+          <p>This is not a like-for-like part. Check it suits your car before continuing.</p>
+        </div>
+        <div id="confirm-message" class="confirm-message"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-primary" id="confirm-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add a car -->
+  <div id="car-overlay" class="overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Add a car</h2>
+        <button class="btn-close" data-close="car">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span>Name *</span>
+          <input id="car-name" type="text" maxlength="40" placeholder="e.g. Toyota GT86">
+          <span id="car-name-error" class="field-error hidden">Please give the car a name.</span>
+        </label>
+        <label class="field">
+          <span>Vehicle (AI searches check parts fit against this)</span>
+          <input id="car-vehicle" type="text" maxlength="100" placeholder="e.g. 2014 Toyota GT86 (ZN6, UK model)">
+        </label>
+        <p class="muted small">Be specific: year, model, chassis code and market. "2014 Toyota GT86 (ZN6, UK model)" gets far better fitment checks than "GT86".</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" data-close="car">Cancel</button>
+        <button id="btn-save-car" class="btn btn-primary">Add car</button>
       </div>
     </div>
   </div>
