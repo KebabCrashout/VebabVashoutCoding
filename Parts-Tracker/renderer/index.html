@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file:; style-src 'self'">
+  <title>Parts Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img id="app-logo" class="app-logo hidden" alt="Logo">
+      <h1 id="app-title" class="app-title">Parts Tracker</h1>
+    </div>
+    <nav class="tabs">
+      <button id="tab-products" class="tab active">Products</button>
+      <button id="tab-tracker" class="tab">Price Tracker</button>
+      <button id="tab-settings" class="tab">Settings</button>
+    </nav>
+    <button id="btn-add" class="btn btn-primary">+ Add Product</button>
+  </header>
+
+  <!-- Products view -->
+  <main id="view-products" class="view">
+    <div class="toolbar">
+      <label class="toolbar-item">
+        <span>Filter</span>
+        <select id="filter-status">
+          <option value="">All statuses</option>
+          <option>Not purchased</option>
+          <option>Ordered</option>
+          <option>Received</option>
+          <option>Part Fitted</option>
+        </select>
+      </label>
+      <label class="toolbar-item">
+        <span>Type</span>
+        <select id="filter-type">
+          <option value="">All types</option>
+          <option>Engine</option>
+          <option>Suspension</option>
+          <option>Tuning</option>
+          <option>Maintenance</option>
+          <option>Style</option>
+        </select>
+      </label>
+      <label class="toolbar-item">
+        <span>Sort</span>
+        <select id="sort-by">
+          <option value="added">Manual order</option>
+          <option value="name">Name (A–Z)</option>
+          <option value="status">Status</option>
+          <option value="orderDateDesc">Order date (newest first)</option>
+          <option value="orderDateAsc">Order date (oldest first)</option>
+        </select>
+      </label>
+      <span id="drag-hint" class="toolbar-hint hidden">Tip: drag cards to reorder</span>
+      <span id="filter-count" class="toolbar-count"></span>
+    </div>
+    <div id="product-grid" class="grid"></div>
+    <div id="empty-state" class="empty-state hidden">
+      <p>No products yet.</p>
+      <p class="muted">Click <strong>+ Add Product</strong> to add your first part.</p>
+    </div>
+    <div id="filter-empty" class="empty-state hidden">
+      <p>No products match this filter.</p>
+    </div>
+  </main>
+
+  <!-- Price Tracker view -->
+  <main id="view-tracker" class="view hidden">
+    <div class="totals-row">
+      <div class="total-card running">
+        <span class="total-label">Running Total</span>
+        <span id="running-total" class="total-value">£0.00</span>
+        <span class="total-hint">Ordered, Received &amp; Part Fitted items</span>
+      </div>
+      <div class="total-card final">
+        <span class="total-label">Final Total</span>
+        <span id="final-total" class="total-value">£0.00</span>
+        <span class="total-hint">All items — planned end goal</span>
+      </div>
+    </div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Product</th><th>Type</th><th>Status</th><th class="col-price">Price</th></tr>
+      </thead>
+      <tbody id="tracker-body"></tbody>
+    </table>
+    <div id="tracker-empty" class="empty-state hidden">
+      <p>No products to total yet.</p>
+    </div>
+  </main>
+
+  <!-- Settings view -->
+  <main id="view-settings" class="view hidden">
+    <div class="settings-wrap">
+      <section class="settings-card">
+        <h3>Appearance</h3>
+        <div class="setting-row">
+          <span>App name</span>
+          <input type="text" id="app-name-input" class="name-input" maxlength="40" placeholder="Parts Tracker">
+        </div>
+        <div class="setting-row">
+          <span>Logo</span>
+          <div class="logo-controls">
+            <img id="logo-preview" class="logo-preview hidden" alt="Logo preview">
+            <button id="btn-pick-logo" class="btn">Choose logo…</button>
+            <button id="btn-remove-logo" class="btn hidden">Remove</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span>Theme</span>
+          <div class="seg">
+            <button id="theme-dark" class="seg-btn">Dark</button>
+            <button id="theme-light" class="seg-btn">Light</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span>Ordered glow</span>
+          <input type="color" id="color-ordered">
+        </div>
+        <div class="setting-row">
+          <span>Received glow</span>
+          <input type="color" id="color-received">
+        </div>
+        <div class="setting-row">
+          <span>Part Fitted glow</span>
+          <input type="color" id="color-fitted">
+        </div>
+        <div class="setting-row">
+          <span></span>
+          <button id="btn-default-colors" class="btn">Restore default colours</button>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <h3>Currency</h3>
+        <label class="field">
+          <span>Currency for all prices</span>
+          <select id="currency-select">
+            <option value="GBP">£ GBP — British Pound</option>
+            <option value="EUR">€ EUR — Euro</option>
+            <option value="USD">$ USD — US Dollar</option>
+            <option value="AUD">$ AUD — Australian Dollar</option>
+            <option value="CAD">$ CAD — Canadian Dollar</option>
+            <option value="NZD">$ NZD — New Zealand Dollar</option>
+            <option value="CHF">CHF — Swiss Franc</option>
+            <option value="JPY">¥ JPY — Japanese Yen</option>
+            <option value="CNY">¥ CNY — Chinese Yuan</option>
+            <option value="INR">₹ INR — Indian Rupee</option>
+            <option value="SEK">kr SEK — Swedish Krona</option>
+            <option value="NOK">kr NOK — Norwegian Krone</option>
+            <option value="DKK">kr DKK — Danish Krone</option>
+            <option value="PLN">zł PLN — Polish Złoty</option>
+            <option value="ZAR">R ZAR — South African Rand</option>
+          </select>
+        </label>
+        <p class="muted small">Only the symbol and formatting change — prices are not converted.</p>
+      </section>
+
+      <section class="settings-card">
+        <h3>AI price search</h3>
+        <label class="field">
+          <span>AI provider</span>
+          <select id="ai-provider-select">
+            <option value="gemini">Google Gemini (free tier)</option>
+            <option value="anthropic">Anthropic Claude (pay per use)</option>
+          </select>
+        </label>
+        <label class="field" id="wrap-gemini-key">
+          <span>Gemini API key (free from aistudio.google.com)</span>
+          <input id="gemini-key-input" type="password" autocomplete="off" placeholder="AIza…">
+        </label>
+        <label class="field hidden" id="wrap-anthropic-key">
+          <span>Anthropic API key (from console.anthropic.com)</span>
+          <input id="api-key-input" type="password" autocomplete="off" placeholder="sk-ant-…">
+        </label>
+        <label class="field">
+          <span>Your vehicle (used to check part fitment)</span>
+          <input id="vehicle-input" type="text" maxlength="80" placeholder="2007 Mazda 3 MPS (BK chassis, UK model)">
+        </label>
+        <p class="muted small">"Find cheapest current price in the UK" always checks a product's saved links for free. With an API key it also scans UK retailers using AI web search — Gemini's free tier costs nothing (rate-limited), Claude costs roughly 15–40p per scan. Keys are stored only on this computer in <code>data\settings.json</code>.</p>
+      </section>
+
+      <section class="settings-card danger-zone">
+        <h3>Danger zone</h3>
+        <p class="muted small">Reset app data permanently deletes every product and every uploaded image. Your appearance and currency settings are kept.</p>
+        <button id="btn-reset-data" class="btn btn-danger">Reset app data…</button>
+      </section>
+    </div>
+  </main>
+
+  <!-- Reset confirmation modal -->
+  <div id="reset-overlay" class="overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>⚠️ Reset app data</h2>
+        <button class="btn-close" data-close="reset">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="danger-text">This will permanently delete <strong>ALL products and ALL uploaded images</strong>.</p>
+        <p class="danger-text">There is <strong>no undo</strong>. If you want a backup, copy the <code>data</code> folder first.</p>
+        <label class="field">
+          <span>Type <strong>DELETE</strong> to confirm</span>
+          <input id="reset-confirm-text" type="text" autocomplete="off" placeholder="DELETE">
+        </label>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" data-close="reset">Cancel</button>
+        <button id="btn-reset-confirm" class="btn btn-danger" disabled>Delete everything</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit product modal -->
+  <div id="form-overlay" class="overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="form-title">Add Product</h2>
+        <button class="btn-close" data-close="form">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span>Name *</span>
+          <input id="f-name" type="text" placeholder="e.g. Front brake discs">
+          <span id="f-name-error" class="field-error hidden">Please enter a product name.</span>
+        </label>
+        <label class="field">
+          <span>Description</span>
+          <textarea id="f-desc" rows="3" placeholder="Details about this part"></textarea>
+        </label>
+        <label class="field">
+          <span>Price (£)</span>
+          <input id="f-price" type="number" min="0" step="0.01" placeholder="0.00">
+        </label>
+        <label class="field">
+          <span>Part type</span>
+          <select id="f-type">
+            <option value="">— None —</option>
+            <option>Engine</option>
+            <option>Suspension</option>
+            <option>Tuning</option>
+            <option>Maintenance</option>
+            <option>Style</option>
+          </select>
+        </label>
+        <div class="field">
+          <span>Image</span>
+          <div class="image-row">
+            <img id="f-preview" class="img-preview hidden" alt="Product image preview">
+            <div id="f-noimage" class="img-placeholder">No image</div>
+            <button id="btn-pick-image" class="btn">Choose image…</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" data-close="form">Cancel</button>
+        <button id="btn-save-product" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product details modal -->
+  <div id="detail-overlay" class="overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h2 id="d-name">Product</h2>
+        <button class="btn-close" data-close="detail">&times;</button>
+      </div>
+      <div class="modal-body detail-layout">
+        <div class="detail-left">
+          <img id="d-image" class="detail-image hidden" alt="Product image">
+          <div id="d-noimage" class="img-placeholder large">No image</div>
+          <div id="d-price" class="detail-price">£0.00</div>
+          <div id="d-type" class="type-chip hidden"></div>
+        </div>
+        <div class="detail-right">
+          <label class="field">
+            <span>Status</span>
+            <select id="d-status">
+              <option>Not purchased</option>
+              <option>Ordered</option>
+              <option>Received</option>
+              <option>Part Fitted</option>
+            </select>
+          </label>
+
+          <label id="wrap-order-date" class="field hidden">
+            <span>Order date</span>
+            <input id="d-order-date" type="date">
+          </label>
+
+          <label id="wrap-received-date" class="field hidden">
+            <span>Date received</span>
+            <input id="d-received-date" type="date">
+          </label>
+
+          <div class="field" id="wrap-desc">
+            <span>Description</span>
+            <div id="d-desc" class="desc-box"></div>
+          </div>
+
+          <div class="field">
+            <span>Website links</span>
+            <ul id="d-links" class="link-list"></ul>
+            <div class="link-add">
+              <input id="d-link-label" type="text" placeholder="Label (optional)">
+              <input id="d-link-url" type="text" placeholder="https://…">
+              <button id="btn-add-link" class="btn">Add link</button>
+            </div>
+            <span id="d-link-error" class="field-error hidden">Please enter a website address.</span>
+          </div>
+
+          <div class="field">
+            <button id="btn-find-price" class="btn btn-search">🔍 Find cheapest current price in the UK</button>
+            <button id="btn-quick-price" class="btn btn-search btn-quick">⚡ Quick price check (saved links only — free)</button>
+            <div id="price-status" class="price-status hidden"></div>
+            <div id="price-banner" class="price-banner hidden"></div>
+            <ul id="price-results" class="price-results"></ul>
+          </div>
+
+          <div class="field">
+            <button id="btn-find-alts" class="btn btn-search">🔀 Find alternatives from other manufacturers</button>
+            <div id="alt-status" class="price-status hidden"></div>
+
+            <div id="alt-pick-wrap" class="alt-pick hidden">
+              <p class="muted small">Tick the manufacturers worth pricing. Prices below are rough guides from the search and are <strong>not verified</strong>.</p>
+              <ul id="alt-picklist" class="alt-picklist"></ul>
+              <button id="btn-price-alts" class="btn">Find cheapest for selected</button>
+            </div>
+
+            <div id="alt-results-wrap" class="hidden">
+              <span class="alt-heading">Alternative options from other manufacturers</span>
+              <div id="alt-results"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot space-between">
+        <button id="btn-delete-product" class="btn btn-danger">Delete</button>
+        <div>
+          <button id="btn-edit-product" class="btn">Edit details</button>
+          <button class="btn btn-primary" data-close="detail">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

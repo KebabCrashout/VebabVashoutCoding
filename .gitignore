@@ -1,0 +1,10 @@
+# Installed dependencies - rebuilt by `npm install`
+node_modules/
+
+# Per-app local data: products, uploaded images, and API keys.
+# Never commit this - data/settings.json holds real API keys.
+data/
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
