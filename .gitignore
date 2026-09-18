@@ -5,6 +5,9 @@ node_modules/
 # Never commit this - data/settings.json holds real API keys.
 data/
 
+# Build output - the .exe installers are attached to GitHub Releases instead
+dist/
+
 # OS / editor noise
 Thumbs.db
 .DS_Store

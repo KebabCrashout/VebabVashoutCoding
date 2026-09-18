@@ -7,6 +7,23 @@ searching.
 Built for a specific car project, but nothing is hard-coded: you set your own
 vehicle, app name, logo and currency in Settings.
 
+## Download (no Node.js or Git needed)
+
+Grab a ready-to-run Windows build from the
+[Releases page](../../releases) — nothing else to install:
+
+- **Parts Tracker Setup 1.0.0.exe** — normal installer. Adds Start Menu and
+  desktop shortcuts, and uninstalls from Add/Remove Programs.
+- **Parts-Tracker-1.0.0-portable.exe** — a single file, no installation. Run it
+  from anywhere and delete it when you are done.
+
+> **Windows will warn you the first time.** These builds are not code-signed, so
+> SmartScreen shows "Windows protected your PC". Click **More info**, then
+> **Run anyway**. This is normal for small independent apps.
+
+Your products are stored in `%APPDATA%\parts-tracker\data`, separate from the app
+itself, so they survive reinstalling or updating.
+
 ## Requirements
 
 - [Node.js](https://nodejs.org) 18 or newer
@@ -34,6 +51,15 @@ download was skipped. Run it once by hand, then start again:
 node node_modules/electron/install.js
 npm start
 ```
+
+### Making the installers
+
+```bash
+npm run dist
+```
+
+Writes the installer and portable `.exe` into `dist/`. That folder is not
+committed — attach the files to a GitHub Release instead.
 
 ### Optional: a desktop shortcut
 

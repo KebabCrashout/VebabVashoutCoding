@@ -35,8 +35,8 @@ function applySettings() {
   const logoPreview = document.getElementById('logo-preview');
   const removeBtn = document.getElementById('btn-remove-logo');
   if (settings.logo) {
-    headerLogo.src = '../data/' + settings.logo;
-    logoPreview.src = '../data/' + settings.logo;
+    headerLogo.src = imgSrc(settings.logo);
+    logoPreview.src = imgSrc(settings.logo);
     headerLogo.classList.remove('hidden');
     logoPreview.classList.remove('hidden');
     removeBtn.classList.remove('hidden');
@@ -106,8 +106,15 @@ function findProduct(id) {
   return data.products.find((p) => p.id === id) || null;
 }
 
+// The data folder sits outside the app once installed, so images need an
+// absolute file URL rather than a path relative to the page.
+function fileUrl(absPath) {
+  const parts = String(absPath).replace(/\\/g, '/').split('/');
+  return 'file:///' + parts.map((s, i) => (i === 0 ? s : encodeURIComponent(s))).join('/');
+}
+
 function imgSrc(rel) {
-  return '../data/' + rel;
+  return fileUrl(window.api.dataDir + '/' + rel);
 }
 
 async function persist() {

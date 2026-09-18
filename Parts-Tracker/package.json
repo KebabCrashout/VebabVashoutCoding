@@ -5,13 +5,58 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "postinstall": "node scripts/ensure-electron.js"
+    "postinstall": "node scripts/ensure-electron.js",
+    "dist": "electron-builder --win"
   },
   "license": "MIT",
   "devDependencies": {
-    "electron": "^44.0.0"
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0"
+  },
+  "build": {
+    "appId": "com.vebabvashout.partstracker",
+    "productName": "Parts Tracker",
+    "files": [
+      "main.js",
+      "preload.js",
+      "pricefinder.js",
+      "renderer/**/*",
+      "package.json",
+      "!data/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Parts Tracker"
+    },
+    "portable": {
+      "artifactName": "Parts-Tracker-${version}-portable.exe"
+    }
   }
 }

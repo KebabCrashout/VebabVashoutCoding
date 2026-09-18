@@ -2,7 +2,12 @@ const { app, BrowserWindow, ipcMain, dialog, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// An installed app lives in Program Files inside a read-only asar archive, so
+// it must keep user data in the per-user AppData folder. In development we
+// keep it beside the source, which is handier and leaves existing data alone.
+const DATA_DIR = app.isPackaged
+  ? path.join(app.getPath('userData'), 'data')
+  : path.join(__dirname, 'data');
 const IMAGES_DIR = path.join(DATA_DIR, 'images');
 const DATA_FILE = path.join(DATA_DIR, 'products.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
@@ -124,6 +129,9 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 }
+
+// Synchronous so the preload can hand the path to the renderer immediately
+ipcMain.on('get-data-dir', (event) => { event.returnValue = DATA_DIR; });
 
 app.whenReady().then(() => {
   ensureDataDirs();
