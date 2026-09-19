@@ -13,10 +13,17 @@ currency in Settings.
 Grab a ready-to-run Windows build from the
 [Releases page](../../releases) — nothing else to install:
 
-- **Parts Tracker Setup 1.0.0.exe** — normal installer. Adds Start Menu and
-  desktop shortcuts, and uninstalls from Add/Remove Programs.
-- **Parts-Tracker-1.0.0-portable.exe** — a single file, no installation. Run it
-  from anywhere and delete it when you are done.
+- **Parts Tracker Setup x.y.z.exe** — normal installer, for a first install. Adds
+  Start Menu and desktop shortcuts, and uninstalls from Add/Remove Programs.
+- **Parts-Tracker-Updater-x.y.z.exe** — already installed? Run this to update. It
+  closes the app, installs the new version in the same folder and opens it again.
+  Your parts and settings are kept.
+- **Parts-Tracker-x.y.z-portable.exe** — a single file, no installation. Run it
+  from anywhere and delete it when you are done. To update, just download the new
+  one; your parts carry over.
+
+Settings shows which version you are running. What changed in each version is in
+[CHANGELOG.md](CHANGELOG.md).
 
 > **Windows will warn you the first time.** These builds are not code-signed, so
 > SmartScreen shows "Windows protected your PC". Click **More info**, then
@@ -59,8 +66,19 @@ npm start
 npm run dist
 ```
 
-Writes the installer and portable `.exe` into `dist/`. That folder is not
-committed — attach the files to a GitHub Release instead.
+Writes the Setup, Updater and portable `.exe` files into `dist/`. That folder is
+not committed — attach the three files to a GitHub Release instead.
+
+To release a new version:
+
+1. Bump `version` in `package.json`.
+2. Add a section to `CHANGELOG.md`.
+3. Run `npm run dist`.
+4. Create a release tagged `vX.Y.Z`, with the changelog section as its notes.
+
+The updater (`build/updater.nsi`, built by `scripts/build-updater.js`) bundles that
+version's Setup. It runs the Setup silently in upgrade mode, and only if the app is
+already installed.
 
 ### Optional: a desktop shortcut
 

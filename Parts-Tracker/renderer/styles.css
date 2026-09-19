@@ -507,6 +507,7 @@ body.light {
 .danger-zone { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
 .danger-zone h3 { color: var(--danger); }
 .danger-zone p { margin-bottom: 14px; }
+.app-version { text-align: center; }
 
 .danger-text { font-size: 14.5px; margin-bottom: 12px; }
 .danger-text strong { color: var(--danger); }

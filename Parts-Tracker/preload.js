@@ -2,9 +2,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Resolved once at load: where products.json and images actually live
 const dataDir = ipcRenderer.sendSync('get-data-dir');
+const appVersion = ipcRenderer.sendSync('get-version');
 
 contextBridge.exposeInMainWorld('api', {
   dataDir,
+  appVersion,
   loadData: () => ipcRenderer.invoke('load-data'),
   saveData: (data) => ipcRenderer.invoke('save-data', data),
   pickImage: (productId) => ipcRenderer.invoke('pick-image', productId),

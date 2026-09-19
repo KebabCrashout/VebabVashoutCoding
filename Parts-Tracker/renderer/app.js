@@ -1429,3 +1429,363 @@ function appConfirm({ title, message, confirmLabel, danger, warnings }) {
 
   const msg = $('confirm-message');
   msg.replaceChildren();
+  for (const para of String(message || '').split('\n\n')) {
+    if (!para.trim()) continue;
+    const el = document.createElement('p');
+    el.textContent = para;
+    msg.appendChild(el);
+  }
+
+  const list = $('confirm-warning-list');
+  list.replaceChildren();
+  for (const w of warnings || []) {
+    const li = document.createElement('li');
+    li.textContent = w;
+    list.appendChild(li);
+  }
+  $('confirm-warning').classList.toggle('hidden', !(warnings && warnings.length));
+
+  const ok = $('confirm-ok');
+  ok.textContent = confirmLabel || 'OK';
+  ok.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+
+  $('confirm-overlay').classList.remove('hidden');
+  // Destructive actions start on Cancel, so Enter can't delete by accident
+  (danger ? $('confirm-cancel') : ok).focus();
+
+  return new Promise((resolve) => { confirmResolve = resolve; });
+}
+
+function settleConfirm(result) {
+  $('confirm-overlay').classList.add('hidden');
+  const resolve = confirmResolve;
+  confirmResolve = null;
+  if (resolve) resolve(result);
+}
+
+$('confirm-ok').addEventListener('click', () => settleConfirm(true));
+$('confirm-cancel').addEventListener('click', () => settleConfirm(false));
+$('confirm-x').addEventListener('click', () => settleConfirm(false));
+
+/* ---------------- Cars ---------------- */
+
+function renderCarSwitch() {
+  const sel = $('car-select');
+  sel.replaceChildren();
+  for (const car of store.cars) {
+    const opt = document.createElement('option');
+    opt.value = car.id;
+    opt.textContent = car.name;
+    sel.appendChild(opt);
+  }
+  const add = document.createElement('option');
+  add.value = '__add__';
+  add.textContent = '+ Add car…';
+  sel.appendChild(add);
+  sel.value = store.activeCarId;
+  const car = activeCar();
+  $('tracker-car-name').textContent = car ? car.name : '';
+}
+
+async function switchCar(carId) {
+  if (!store.cars.some((c) => c.id === carId)) return;
+  store.activeCarId = carId;
+  currentId = null;
+  // Filters and sort belonged to the car being left
+  $('filter-status').value = '';
+  $('filter-type').value = '';
+  $('sort-by').value = 'added';
+  for (const id of ['detail-overlay', 'form-overlay']) $(id).classList.add('hidden');
+  await persist();
+  renderCarSwitch();
+  renderGrid();
+  renderTracker();
+  renderGarage();
+}
+
+$('car-select').addEventListener('change', () => {
+  const value = $('car-select').value;
+  if (value === '__add__') {
+    $('car-select').value = store.activeCarId; // don't leave "+ Add car" showing
+    openCarForm();
+    return;
+  }
+  switchCar(value);
+});
+
+function carTotals(car) {
+  let spent = 0;
+  let planned = 0;
+  for (const p of car.products) {
+    const price = Number(p.price) || 0;
+    planned += price;
+    if (p.status && p.status !== 'Not purchased') spent += price;
+  }
+  return { spent, planned, count: car.products.length };
+}
+
+function renderGarage() {
+  const list = $('garage-list');
+  list.replaceChildren();
+
+  for (const car of store.cars) {
+    const active = car.id === store.activeCarId;
+    const totals = carTotals(car);
+
+    const card = document.createElement('div');
+    card.className = 'garage-card' + (active ? ' active' : '');
+
+    const top = document.createElement('div');
+    top.className = 'garage-card-top';
+    const name = document.createElement('input');
+    name.className = 'garage-name';
+    name.value = car.name;
+    name.maxLength = 40;
+    name.setAttribute('aria-label', 'Car name');
+    name.addEventListener('change', async () => {
+      car.name = name.value.trim() || car.name;
+      name.value = car.name;
+      await persist();
+      renderCarSwitch();
+    });
+    top.appendChild(name);
+
+    if (active) {
+      const badge = document.createElement('span');
+      badge.className = 'garage-badge';
+      badge.textContent = 'Current';
+      top.appendChild(badge);
+    } else {
+      const go = document.createElement('button');
+      go.className = 'btn';
+      go.textContent = 'Switch to';
+      go.addEventListener('click', async () => {
+        await switchCar(car.id);
+        switchTab('products');
+      });
+      top.appendChild(go);
+    }
+    card.appendChild(top);
+
+    const field = document.createElement('label');
+    field.className = 'field garage-vehicle';
+    const caption = document.createElement('span');
+    caption.textContent = 'Vehicle (AI searches check parts fit against this)';
+    const vehicle = document.createElement('input');
+    vehicle.type = 'text';
+    vehicle.maxLength = 100;
+    vehicle.placeholder = 'e.g. 2014 Toyota GT86 (ZN6, UK model)';
+    vehicle.value = car.vehicle || '';
+    vehicle.addEventListener('change', async () => {
+      car.vehicle = vehicle.value.trim();
+      await persist();
+      renderGarage();
+    });
+    field.append(caption, vehicle);
+    card.appendChild(field);
+
+    if (!car.vehicle) {
+      const warn = document.createElement('p');
+      warn.className = 'garage-warn';
+      warn.textContent = 'No vehicle set - AI searches are turned off for this car until you add one.';
+      card.appendChild(warn);
+    }
+
+    const stats = document.createElement('div');
+    stats.className = 'garage-stats';
+    stats.textContent = totals.count + ' part' + (totals.count === 1 ? '' : 's') +
+      ' · ' + money.format(totals.spent) + ' spent · ' + money.format(totals.planned) + ' planned';
+    card.appendChild(stats);
+
+    const del = document.createElement('button');
+    del.className = 'btn btn-danger garage-delete';
+    del.textContent = 'Delete car';
+    del.disabled = store.cars.length === 1;
+    del.title = del.disabled ? 'You need at least one car' : 'Delete this car and all of its parts';
+    del.addEventListener('click', () => deleteCar(car));
+    card.appendChild(del);
+
+    list.appendChild(card);
+  }
+}
+
+async function deleteCar(car) {
+  if (store.cars.length === 1) return;
+  const count = car.products.length;
+  const ok = await appConfirm({
+    title: 'Delete ' + car.name + '?',
+    message: 'This permanently deletes ' + car.name + ' and its ' + count + ' part' + (count === 1 ? '' : 's') +
+      ', including their photos, links and alternatives.\n\nThere is no undo.',
+    confirmLabel: 'Delete car',
+    danger: true
+  });
+  if (!ok) return;
+
+  // These photos belong only to this car's parts, so they go with it
+  for (const p of car.products) {
+    if (p.image) await window.api.deleteImage(p.image);
+    for (const a of (p.alternatives && p.alternatives.manufacturers) || []) {
+      if (a.image) await window.api.deleteImage(a.image);
+    }
+  }
+  store.cars = store.cars.filter((c) => c.id !== car.id);
+  if (store.activeCarId === car.id) store.activeCarId = store.cars[0].id;
+  await switchCar(store.activeCarId);
+}
+
+function openCarForm() {
+  $('car-name').value = '';
+  $('car-vehicle').value = '';
+  clearFieldError('car-name', 'car-name-error');
+  $('car-overlay').classList.remove('hidden');
+  $('car-name').focus();
+}
+
+async function saveNewCar() {
+  const name = $('car-name').value.trim();
+  if (!name) { showFieldError('car-name', 'car-name-error'); return; }
+  const car = { id: crypto.randomUUID(), name, vehicle: $('car-vehicle').value.trim(), products: [] };
+  store.cars.push(car);
+  $('car-overlay').classList.add('hidden');
+  await switchCar(car.id);
+  switchTab('products');
+}
+
+$('car-name').addEventListener('input', () => clearFieldError('car-name', 'car-name-error'));
+$('btn-add-car').addEventListener('click', openCarForm);
+$('btn-save-car').addEventListener('click', saveNewCar);
+for (const id of ['car-name', 'car-vehicle']) {
+  $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') saveNewCar(); });
+}
+for (const btn of document.querySelectorAll('[data-close="car"]')) {
+  btn.addEventListener('click', () => $('car-overlay').classList.add('hidden'));
+}
+
+/* ---------------- Movable popups ---------------- */
+
+// Every popup can be dragged by its title bar, so it can be moved off whatever
+// it is covering. Each time a popup opens it starts centred again.
+let suppressBackdropClick = false;
+
+function makeDraggable(overlay) {
+  const modal = overlay.querySelector('.modal');
+  const handle = modal && modal.querySelector('.modal-head');
+  if (!handle) return;
+
+  const pos = () => [Number(modal.dataset.x) || 0, Number(modal.dataset.y) || 0];
+  const place = (x, y) => {
+    modal.dataset.x = x;
+    modal.dataset.y = y;
+    modal.style.transform = (x || y) ? 'translate(' + x + 'px, ' + y + 'px)' : '';
+  };
+
+  let dragging = false;
+  let moved = false;
+  let startX = 0;
+  let startY = 0;
+  let baseX = 0;
+  let baseY = 0;
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('button, input, select, textarea')) return;
+    [baseX, baseY] = pos();
+    startX = e.clientX;
+    startY = e.clientY;
+    dragging = true;
+    moved = false;
+    modal.classList.add('dragging');
+    e.preventDefault(); // no text selection while dragging
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    if (Math.abs(e.clientX - startX) + Math.abs(e.clientY - startY) > 3) moved = true;
+
+    // Where the popup would sit with no offset, so the limits can be worked out
+    const [curX, curY] = pos();
+    const r = modal.getBoundingClientRect();
+    const homeLeft = r.left - curX;
+    const homeTop = r.top - curY;
+
+    // Always leave the title bar reachable, so it can be grabbed again
+    const keep = 80;
+    const x = Math.min(window.innerWidth - keep - homeLeft,
+      Math.max(keep - r.width - homeLeft, baseX + e.clientX - startX));
+    const y = Math.min(window.innerHeight - handle.offsetHeight - homeTop,
+      Math.max(-homeTop, baseY + e.clientY - startY));
+    place(x, y);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    modal.classList.remove('dragging');
+    // Letting go over the dimmed backdrop must not count as clicking it
+    if (moved) {
+      suppressBackdropClick = true;
+      setTimeout(() => { suppressBackdropClick = false; }, 0);
+    }
+  });
+
+  // Recentre only on a real hidden -> shown change, not on re-renders
+  let wasHidden = overlay.classList.contains('hidden');
+  new MutationObserver(() => {
+    const hidden = overlay.classList.contains('hidden');
+    if (wasHidden && !hidden) place(0, 0);
+    wasHidden = hidden;
+  }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+}
+
+document.addEventListener('click', (e) => {
+  if (suppressBackdropClick) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+}, true);
+
+for (const overlay of document.querySelectorAll('.overlay')) makeDraggable(overlay);
+
+/* ---------------- Alternatives vs purchased parts ---------------- */
+
+// Once a part is bought, alternatives are just clutter. They're hidden rather
+// than deleted, so setting it back to "Not purchased" brings them back.
+function updateAltVisibility(p) {
+  const bought = !!p && (p.status || 'Not purchased') !== 'Not purchased';
+  $('wrap-alts').classList.toggle('hidden', bought);
+}
+
+/* ---------------- Modal close wiring ---------------- */
+
+for (const btn of document.querySelectorAll('[data-close="form"]')) {
+  btn.addEventListener('click', () => closeForm(true));
+}
+for (const btn of document.querySelectorAll('[data-close="detail"]')) {
+  btn.addEventListener('click', () => $('detail-overlay').classList.add('hidden'));
+}
+
+// Click on the dark backdrop closes the details modal (all its edits save live)
+$('detail-overlay').addEventListener('click', (e) => {
+  if (e.target === $('detail-overlay')) $('detail-overlay').classList.add('hidden');
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('confirm-overlay').classList.contains('hidden')) settleConfirm(false);
+  else if (!$('car-overlay').classList.contains('hidden')) $('car-overlay').classList.add('hidden');
+  else if (!$('reset-overlay').classList.contains('hidden')) $('reset-overlay').classList.add('hidden');
+  else if (!$('form-overlay').classList.contains('hidden')) closeForm(true);
+  else $('detail-overlay').classList.add('hidden');
+});
+
+/* ---------------- Init ---------------- */
+
+(async function init() {
+  $('app-version').textContent = 'Version ' + window.api.appVersion;
+  settings = await window.api.loadSettings();
+  applySettings();
+  store = await window.api.loadData();
+  renderCarSwitch();
+  renderGrid();
+  renderTracker();
+  renderGarage();
+})();

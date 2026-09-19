@@ -197,6 +197,7 @@ if (!app.requestSingleInstanceLock()) {
 
 // Synchronous so the preload can hand the path to the renderer immediately
 ipcMain.on('get-data-dir', (event) => { event.returnValue = DATA_DIR; });
+ipcMain.on('get-version', (event) => { event.returnValue = app.getVersion(); });
 
 app.whenReady().then(() => {
   ensureDataDirs();

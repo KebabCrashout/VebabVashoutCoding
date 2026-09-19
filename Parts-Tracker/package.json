@@ -1,12 +1,13 @@
 {
   "name": "parts-tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Track project parts: images, prices, links, order status and totals",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "postinstall": "node scripts/ensure-electron.js",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win && node scripts/build-updater.js",
+    "dist:updater": "node scripts/build-updater.js"
   },
   "license": "MIT",
   "devDependencies": {
